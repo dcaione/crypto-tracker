@@ -2,7 +2,7 @@
   "name": "CryptoTracker — Portfolio",
   "short_name": "CryptoTracker",
   "description": "Traccia il tuo portafoglio crypto con DCA e analisi P&L in tempo reale",
-  "start_url": "/index.html",
+  "start_url": "/crypto-tracker/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#060d1a",
