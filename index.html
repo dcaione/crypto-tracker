@@ -149,6 +149,51 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tx-pnl{font-size:12px;font-weight:600;margin-top:4px}
 .tx-pnl.pos{color:var(--green)}
 .tx-pnl.neg{color:var(--red)}
+/* FILTER / SORT BAR */
+.filter-bar {
+  padding: 0 14px 10px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.filter-search {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 10px 14px;
+  transition: border-color .2s;
+}
+.filter-search:focus-within { border-color: var(--gold); }
+.filter-search svg { flex-shrink:0; color: var(--muted); width:16px; height:16px; }
+.filter-search input {
+  flex:1; background:none; border:none; outline:none;
+  color: var(--text); font-family:'Outfit',sans-serif; font-size:14px;
+}
+.filter-search input::placeholder { color: var(--muted); }
+.filter-search .clear-btn {
+  background:none; border:none; color:var(--muted);
+  font-size:18px; cursor:pointer; padding:0 2px; line-height:1;
+  display:none;
+}
+.filter-search input:not(:placeholder-shown) ~ .clear-btn { display:block; }
+.filter-chips {
+  display: flex; gap: 6px; overflow-x: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+  padding-bottom: 2px;
+}
+.filter-chips::-webkit-scrollbar { display:none; }
+.chip {
+  padding: 5px 13px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid var(--border); background: none;
+  color: var(--muted); font-family:'Outfit',sans-serif;
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: all .18s; flex-shrink: 0;
+}
+.chip.active { background: var(--gold); color: #000; border-color: var(--gold); }
+.chip.active-green { background: rgba(29,233,182,0.15); color: var(--green); border-color: var(--green); }
+.chip.active-red { background: rgba(255,77,109,0.15); color: var(--red); border-color: var(--red); }
+.no-results {
+  text-align:center; padding:32px 24px;
+  color:var(--muted); font-size:13px; line-height:1.8;
+}
+
 /* SWIPE TO DELETE */
 .tx-wrap {
   position:relative; overflow:hidden; border-radius:14px;
@@ -336,6 +381,25 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   </div>
 
   <div class="section-title">Portafoglio <span id="portfolioNameLabel" style="color:var(--gold);margin-left:4px"></span></div>
+  <div class="filter-bar" style="padding-top:0">
+    <div class="filter-chips">
+      <button class="chip active" id="cfAll"       onclick="setCoinFilter('all')">Tutti</button>
+      <button class="chip"        id="cfPos"       onclick="setCoinFilter('pos')">📈 Profitto</button>
+      <button class="chip"        id="cfNeg"       onclick="setCoinFilter('neg')">📉 Perdita</button>
+      <button class="chip"        id="cfDca"       onclick="setCoinFilter('dca')">🟢 DCA ok</button>
+      <button class="chip"        id="cfL1"        onclick="setCoinFilter('Layer 1')">Layer 1</button>
+      <button class="chip"        id="cfAI"        onclick="setCoinFilter('AI')">AI</button>
+      <button class="chip"        id="cfDefi"      onclick="setCoinFilter('DeFi')">DeFi</button>
+    </div>
+    <div class="filter-chips">
+      <span style="font-size:10px;color:var(--muted);letter-spacing:1px;align-self:center;flex-shrink:0">ORDINA</span>
+      <button class="chip" id="csDefault"   onclick="setCoinSort('default')">Default</button>
+      <button class="chip active" id="csPnl" onclick="setCoinSort('pnl')">P&L %</button>
+      <button class="chip" id="csValue"     onclick="setCoinSort('value')">Valore</button>
+      <button class="chip" id="csTarget"    onclick="setCoinSort('target')">Al target</button>
+      <button class="chip" id="csAlpha"     onclick="setCoinSort('alpha')">A→Z</button>
+    </div>
+  </div>
   <div class="coin-list" id="coinList"></div>
   <div class="last-update"><span id="lastUpdateText">—</span></div>
 </div>
@@ -415,7 +479,21 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     <div class="header-row"><h1>STO<span>RICO</span></h1></div>
     <div class="header-sub" id="historySubtitle">Tutti i movimenti</div>
   </div>
-  <div class="section-title" id="histFilterLabel">Tutte le operazioni</div>
+  <div class="filter-bar">
+    <div class="filter-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="histSearch" placeholder="Cerca coin o note..." oninput="applyHistoryFilters()">
+      <button class="clear-btn" onclick="clearHistSearch()">×</button>
+    </div>
+    <div class="filter-chips">
+      <button class="chip active" id="hfAll"    onclick="setHistFilter('all')">Tutti</button>
+      <button class="chip"        id="hfBuy"    onclick="setHistFilter('buy')">📈 Acquisti</button>
+      <button class="chip"        id="hfSell"   onclick="setHistFilter('sell')">📉 Vendite</button>
+      <button class="chip"        id="hfRecent" onclick="setHistFilter('recent')">Ultimi 30gg</button>
+      <button class="chip"        id="hfPos"    onclick="setHistFilter('pos')">✅ In profitto</button>
+      <button class="chip"        id="hfNeg"    onclick="setHistFilter('neg')">🔴 In perdita</button>
+    </div>
+  </div>
   <div id="txList" class="tx-list"></div>
 </div>
 
@@ -848,14 +926,54 @@ function renderPortfolio() {
   const list = document.getElementById('coinList');
   list.innerHTML = '';
 
+  // Apply filter
+  let filteredCoins = PORTFOLIO.filter(coin => {
+    const cs = state[coin.ticker];
+    const p = (currentPrices[coin.ticker]||{price:coin.entryPrice}).price;
+    const cv = cs.qty * p;
+    const pnl = cv - cs.invested;
+    if (coinFilter==='pos') return cs.invested>0 && pnl>0;
+    if (coinFilter==='neg') return cs.invested>0 && pnl<0;
+    if (coinFilter==='dca') return cs.avgPrice>0 && p < cs.avgPrice*0.95;
+    if (coinFilter==='Layer 1') return coin.narrative.includes('Layer 1');
+    if (coinFilter==='AI') return coin.narrative.includes('AI');
+    if (coinFilter==='DeFi') return coin.narrative.includes('DeFi');
+    return true;
+  });
+
+  // Apply sort
+  filteredCoins = filteredCoins.slice().sort((a,b) => {
+    if (coinSort==='default') return PORTFOLIO.indexOf(a)-PORTFOLIO.indexOf(b);
+    if (coinSort==='alpha') return a.ticker.localeCompare(b.ticker);
+    const csA=state[a.ticker], csB=state[b.ticker];
+    const pA=(currentPrices[a.ticker]||{price:a.entryPrice}).price;
+    const pB=(currentPrices[b.ticker]||{price:b.entryPrice}).price;
+    if (coinSort==='value') return (csB.qty*pB)-(csA.qty*pA);
+    if (coinSort==='pnl') {
+      const pnlA=csA.invested>0?(csA.qty*pA-csA.invested)/csA.invested*100:-999;
+      const pnlB=csB.invested>0?(csB.qty*pB-csB.invested)/csB.invested*100:-999;
+      return pnlB-pnlA;
+    }
+    if (coinSort==='target') {
+      const tA=(a.target-pA)/pA; const tB=(b.target-pB)/pB;
+      return tA-tB; // closest to target first
+    }
+    return 0;
+  });
+
+  // Totals always from full PORTFOLIO (unfiltered)
   PORTFOLIO.forEach(coin => {
+    const cs=state[coin.ticker];
+    const p=(currentPrices[coin.ticker]||{price:coin.entryPrice}).price;
+    totalInvested+=cs.invested; totalValue+=cs.qty*p;
+  });
+
+  filteredCoins.forEach(coin => {
     const cs = state[coin.ticker];
     const p = (currentPrices[coin.ticker]||{price:coin.entryPrice,change24h:0});
     const cv = cs.qty * p.price;
     const pnl = cv - cs.invested;
     const pnlPct = cs.invested>0 ? (pnl/cs.invested)*100 : 0;
-    totalInvested += cs.invested;
-    totalValue += cv;
 
     // Semaforo DCA
     let semaforoColor = '#5a7299'; // grigio = nessun dato
@@ -1127,6 +1245,113 @@ function renderHistory(){
   }).join('');
   // Attach swipe listeners
   list.querySelectorAll('.tx-card').forEach(card => attachSwipe(card));
+}
+
+// ═══════════════════════════════════════════════════════
+// HISTORY FILTERS
+// ═══════════════════════════════════════════════════════
+let histFilter = 'all';
+
+function setHistFilter(f) {
+  histFilter = f;
+  ['All','Buy','Sell','Recent','Pos','Neg'].forEach(k => {
+    const el = document.getElementById('hf'+k);
+    if (el) el.classList.remove('active','active-green','active-red');
+  });
+  const map = {all:'hfAll',buy:'hfBuy',sell:'hfSell',recent:'hfRecent',pos:'hfPos',neg:'hfNeg'};
+  const el = document.getElementById(map[f]);
+  if (el) {
+    if (f==='pos') el.classList.add('active-green');
+    else if (f==='neg') el.classList.add('active-red');
+    else el.classList.add('active');
+  }
+  applyHistoryFilters();
+}
+
+function clearHistSearch() {
+  document.getElementById('histSearch').value = '';
+  applyHistoryFilters();
+}
+
+function applyHistoryFilters() {
+  const query = (document.getElementById('histSearch')?.value||'').toLowerCase().trim();
+  const now = new Date();
+  const cutoff = new Date(now - 30*24*60*60*1000);
+
+  let txs = getTransactions().slice().reverse();
+
+  // Type filter
+  if (histFilter==='buy')    txs = txs.filter(t=>t.type==='buy');
+  if (histFilter==='sell')   txs = txs.filter(t=>t.type==='sell');
+  if (histFilter==='recent') txs = txs.filter(t=>new Date(t.date)>=cutoff);
+  if (histFilter==='pos')    txs = txs.filter(t=>{
+    const cp=(currentPrices[t.ticker]||{price:t.price}).price;
+    return t.type==='buy' ? (t.qty*cp-t.amount)>0 : (t.revenue-t.costBase)>0;
+  });
+  if (histFilter==='neg')    txs = txs.filter(t=>{
+    const cp=(currentPrices[t.ticker]||{price:t.price}).price;
+    return t.type==='buy' ? (t.qty*cp-t.amount)<0 : (t.revenue-t.costBase)<0;
+  });
+
+  // Search filter
+  if (query) txs = txs.filter(t =>
+    t.ticker.toLowerCase().includes(query) ||
+    (t.name||'').toLowerCase().includes(query) ||
+    (t.note||'').toLowerCase().includes(query)
+  );
+
+  document.getElementById('historySubtitle').textContent =
+    `${txs.length} operazion${txs.length===1?'e':'i'}` + (query||histFilter!=='all' ? ' (filtrate)' : '');
+
+  const list = document.getElementById('txList');
+  if (txs.length===0) {
+    list.innerHTML='<div class="no-results">🔍 Nessun risultato<br><span style="font-size:11px">Prova a cambiare filtro o ricerca</span></div>';
+    return;
+  }
+  list.innerHTML = txs.map(tx=>{
+    const cp=(currentPrices[tx.ticker]||{price:tx.price}).price;
+    let inner='';
+    if(tx.type==='buy'){
+      const cv=tx.qty*cp,pnl=cv-tx.amount,pnlPct=pnl/tx.amount*100;
+      inner=`<div class="tx-left"><div class="tx-ticker">${tx.ticker}</div><div class="tx-date">${formatDateShort(tx.date)}${tx.note?' · '+tx.note:''}</div><span class="tx-type">ACQUISTO DCA</span></div><div class="tx-right"><div class="tx-amount stealth-hide">$${fmtNum(tx.amount)}</div><div class="tx-detail">${tx.qty.toFixed(4)} @ $${fmtPrice(tx.price)}</div><div class="tx-pnl ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${pnlPct.toFixed(1)}%</div></div>`;
+    } else {
+      const pnl=tx.revenue-tx.costBase,pnlPct=tx.costBase>0?(pnl/tx.costBase*100):0;
+      inner=`<div class="tx-left"><div class="tx-ticker">${tx.ticker}</div><div class="tx-date">${formatDateShort(tx.date)}${tx.note?' · '+tx.note:''}</div><span class="tx-type">VENDITA</span></div><div class="tx-right"><div class="tx-amount stealth-hide">$${fmtNum(tx.revenue)}</div><div class="tx-detail">${tx.qty.toFixed(4)} @ $${fmtPrice(tx.price)}</div><div class="tx-pnl ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${pnlPct.toFixed(1)}%</div></div>`;
+    }
+    return `<div class="tx-wrap" style="max-height:120px;margin-bottom:7px" data-id="${tx.id}">
+      <div class="tx-delete-bg"><span>🗑</span><span>ELIMINA</span></div>
+      <div class="tx-card ${tx.type}" data-id="${tx.id}">${inner}</div>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.tx-card').forEach(card => attachSwipe(card));
+}
+
+// ═══════════════════════════════════════════════════════
+// COIN SORT & FILTER
+// ═══════════════════════════════════════════════════════
+let coinFilter = 'all';
+let coinSort   = 'pnl';
+
+function setCoinFilter(f) {
+  coinFilter = f;
+  document.querySelectorAll('[id^="cf"]').forEach(el=>el.classList.remove('active','active-green','active-red'));
+  const map={all:'cfAll',pos:'cfPos',neg:'cfNeg',dca:'cfDca','Layer 1':'cfL1','AI':'cfAI','DeFi':'cfDefi'};
+  const el = document.getElementById(map[f]);
+  if(el){
+    if(f==='pos') el.classList.add('active-green');
+    else if(f==='neg') el.classList.add('active-red');
+    else el.classList.add('active');
+  }
+  renderPortfolio();
+}
+
+function setCoinSort(s) {
+  coinSort = s;
+  document.querySelectorAll('[id^="cs"]').forEach(el=>el.classList.remove('active'));
+  const map={default:'csDefault',pnl:'csPnl',value:'csValue',target:'csTarget',alpha:'csAlpha'};
+  const el = document.getElementById(map[s]);
+  if(el) el.classList.add('active');
+  renderPortfolio();
 }
 
 // ═══════════════════════════════════════════════════════
