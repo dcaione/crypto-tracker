@@ -1,5 +1,5 @@
 // ─── Aggiorna questo numero ad ogni nuova versione dell'app ───
-const CACHE_VERSION = 'cryptotracker-v4';
+const CACHE_VERSION = 'cryptotracker-v5';
 
 const STATIC_ASSETS = [
   'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&display=swap',

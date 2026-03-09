@@ -149,6 +149,39 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .tx-pnl{font-size:12px;font-weight:600;margin-top:4px}
 .tx-pnl.pos{color:var(--green)}
 .tx-pnl.neg{color:var(--red)}
+/* SWIPE TO DELETE */
+.tx-wrap {
+  position:relative; overflow:hidden; border-radius:14px;
+}
+.tx-delete-bg {
+  position:absolute; right:0; top:0; bottom:0;
+  background:linear-gradient(135deg,var(--red),#a0001e);
+  display:flex; align-items:center; justify-content:flex-end;
+  padding-right:20px; gap:8px; min-width:80px;
+  border-radius:14px;
+  pointer-events:none;
+}
+.tx-delete-bg span { color:#fff; font-size:13px; font-weight:700; letter-spacing:.5px; }
+.tx-card {
+  transition: transform .15s ease, box-shadow .15s;
+  will-change: transform;
+  touch-action: pan-y;
+  position:relative; z-index:1;
+  cursor:grab;
+}
+.tx-card.swiping { transition: none; }
+.tx-card.deleting {
+  transform: translateX(-100%) !important;
+  transition: transform .35s cubic-bezier(0.4,0,0.2,1) !important;
+  opacity:0;
+}
+.tx-wrap.removing {
+  max-height:0 !important;
+  overflow:hidden;
+  margin-bottom:0 !important;
+  transition: max-height .3s ease, margin .3s ease;
+}
+
 .empty-state{text-align:center;padding:48px 24px;color:var(--muted);font-size:14px;line-height:1.7}
 .empty-state .icon{font-size:40px;margin-bottom:12px}
 
@@ -1079,14 +1112,98 @@ function renderHistory(){
   if(txs.length===0){list.innerHTML='<div class="empty-state"><div class="icon">📋</div>Nessuna operazione.<br>Aggiungi il primo acquisto DCA!</div>';return;}
   list.innerHTML=txs.map(tx=>{
     const cp=(currentPrices[tx.ticker]||{price:tx.price}).price;
+    let inner='';
     if(tx.type==='buy'){
       const cv=tx.qty*cp,pnl=cv-tx.amount,pnlPct=pnl/tx.amount*100;
-      return `<div class="tx-card buy"><div class="tx-left"><div class="tx-ticker">${tx.ticker}</div><div class="tx-date">${formatDateShort(tx.date)}${tx.note?' · '+tx.note:''}</div><span class="tx-type">ACQUISTO DCA</span></div><div class="tx-right"><div class="tx-amount stealth-hide">$${fmtNum(tx.amount)}</div><div class="tx-detail">${tx.qty.toFixed(4)} @ $${fmtPrice(tx.price)}</div><div class="tx-pnl ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${pnlPct.toFixed(1)}%</div></div></div>`;
+      inner=`<div class="tx-left"><div class="tx-ticker">${tx.ticker}</div><div class="tx-date">${formatDateShort(tx.date)}${tx.note?' · '+tx.note:''}</div><span class="tx-type">ACQUISTO DCA</span></div><div class="tx-right"><div class="tx-amount stealth-hide">$${fmtNum(tx.amount)}</div><div class="tx-detail">${tx.qty.toFixed(4)} @ $${fmtPrice(tx.price)}</div><div class="tx-pnl ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${pnlPct.toFixed(1)}%</div></div>`;
     } else {
       const pnl=tx.revenue-tx.costBase,pnlPct=tx.costBase>0?(pnl/tx.costBase*100):0;
-      return `<div class="tx-card sell"><div class="tx-left"><div class="tx-ticker">${tx.ticker}</div><div class="tx-date">${formatDateShort(tx.date)}${tx.note?' · '+tx.note:''}</div><span class="tx-type">VENDITA</span></div><div class="tx-right"><div class="tx-amount stealth-hide">$${fmtNum(tx.revenue)}</div><div class="tx-detail">${tx.qty.toFixed(4)} @ $${fmtPrice(tx.price)}</div><div class="tx-pnl ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${pnlPct.toFixed(1)}%</div></div></div>`;
+      inner=`<div class="tx-left"><div class="tx-ticker">${tx.ticker}</div><div class="tx-date">${formatDateShort(tx.date)}${tx.note?' · '+tx.note:''}</div><span class="tx-type">VENDITA</span></div><div class="tx-right"><div class="tx-amount stealth-hide">$${fmtNum(tx.revenue)}</div><div class="tx-detail">${tx.qty.toFixed(4)} @ $${fmtPrice(tx.price)}</div><div class="tx-pnl ${pnl>=0?'pos':'neg'}">${pnl>=0?'+':''}${pnlPct.toFixed(1)}%</div></div>`;
     }
+    return `<div class="tx-wrap" style="max-height:120px;margin-bottom:7px" data-id="${tx.id}">
+      <div class="tx-delete-bg"><span>🗑</span><span>ELIMINA</span></div>
+      <div class="tx-card ${tx.type}" data-id="${tx.id}">${inner}</div>
+    </div>`;
   }).join('');
+  // Attach swipe listeners
+  list.querySelectorAll('.tx-card').forEach(card => attachSwipe(card));
+}
+
+// ═══════════════════════════════════════════════════════
+// SWIPE TO DELETE
+// ═══════════════════════════════════════════════════════
+function attachSwipe(card) {
+  let startX=0, startY=0, currentX=0, isDragging=false, isHorizontal=null;
+  const THRESHOLD = 80; // px to trigger delete
+
+  function onStart(e) {
+    const touch = e.touches ? e.touches[0] : e;
+    startX = touch.clientX;
+    startY = touch.clientY;
+    currentX = 0;
+    isDragging = true;
+    isHorizontal = null;
+    card.classList.add('swiping');
+  }
+  function onMove(e) {
+    if (!isDragging) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    // Determine direction on first significant move
+    if (isHorizontal === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+      isHorizontal = Math.abs(dx) > Math.abs(dy);
+    }
+    if (!isHorizontal) return; // vertical scroll — ignore
+    if (dx > 0) return; // only left swipe
+    e.preventDefault();
+    currentX = dx;
+    card.style.transform = `translateX(${Math.max(dx, -140)}px)`;
+    // Show red bg proportionally
+    const wrap = card.closest('.tx-wrap');
+    const bg = wrap.querySelector('.tx-delete-bg');
+    const progress = Math.min(Math.abs(dx)/THRESHOLD, 1);
+    if (bg) bg.style.opacity = progress;
+  }
+  function onEnd() {
+    if (!isDragging) return;
+    isDragging = false;
+    card.classList.remove('swiping');
+    if (currentX < -THRESHOLD) {
+      // Confirm deletion
+      confirmDeleteTx(card);
+    } else {
+      // Snap back
+      card.style.transform = '';
+      const wrap = card.closest('.tx-wrap');
+      const bg = wrap ? wrap.querySelector('.tx-delete-bg') : null;
+      if (bg) bg.style.opacity = '0';
+    }
+    currentX = 0;
+  }
+  card.addEventListener('touchstart', onStart, {passive:true});
+  card.addEventListener('touchmove', onMove, {passive:false});
+  card.addEventListener('touchend', onEnd);
+}
+
+function confirmDeleteTx(card) {
+  const id = parseInt(card.dataset.id);
+  const wrap = card.closest('.tx-wrap');
+  // Animate card fully out
+  card.classList.add('deleting');
+  setTimeout(() => {
+    // Collapse the wrapper
+    wrap.classList.add('removing');
+    setTimeout(() => {
+      // Actually delete
+      const txs = getTransactions().filter(t => t.id !== id);
+      saveTransactions(txs);
+      renderPortfolio();
+      renderHistory();
+      updateStats();
+      showToast('🗑️ Operazione eliminata');
+    }, 300);
+  }, 350);
 }
 
 // ═══════════════════════════════════════════════════════
